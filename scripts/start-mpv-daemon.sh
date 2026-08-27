@@ -6,7 +6,6 @@
 
 SOCKET_PATH="/tmp/mpvsocket"
 AUDIO_DEV="alsa/plughw:1,0"
-YTDL_BIN="/usr/local/bin/yt-dlp"
 
 echo "========================================================"
 echo " 🎧 Starting MPV Headless Audio Daemon"
@@ -25,5 +24,4 @@ exec mpv \
   --audio-device="${AUDIO_DEV}" \
   --input-ipc-server="${SOCKET_PATH}" \
   --ytdl-format="bestaudio/best" \
-  --ytdl-path="${YTDL_BIN}" \
   --msg-level=all=warn
