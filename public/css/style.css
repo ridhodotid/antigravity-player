@@ -15,7 +15,7 @@ body {
   user-select: none;
 }
 
-/* Custom Scrollbar for Queue */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -70,7 +70,7 @@ input[type="range"]:focus {
   outline: none;
 }
 
-/* WebKit (Chrome, Safari, Edge) Track */
+/* WebKit Track & Thumb */
 input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 9999px;
@@ -78,7 +78,6 @@ input[type="range"]::-webkit-slider-runnable-track {
   transition: background 0.2s ease;
 }
 
-/* WebKit Slider Thumb */
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -112,7 +111,7 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
 }
 
-/* Marquee / Overflow title handling */
+/* Marquee Overflow */
 .marquee-container {
   overflow: hidden;
   white-space: nowrap;
@@ -124,34 +123,22 @@ input[type="range"]::-moz-range-thumb {
   will-change: transform;
 }
 
-.animate-marquee {
-  display: inline-block;
-  animation: marquee 12s linear infinite alternate;
+/* Drawer Transitions */
+.sidebar-open #sidebar-drawer {
+  transform: translateX(0);
 }
 
-@keyframes marquee {
-  0% {
-    transform: translateX(0%);
-  }
-  20% {
-    transform: translateX(0%);
-  }
-  80% {
-    transform: translateX(-50%);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+.sidebar-open #sidebar-backdrop {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-/* Pulse indicator animation */
-@keyframes ping-slow {
-  75%, 100% {
-    transform: scale(2);
-    opacity: 0;
-  }
+/* Modal Transitions */
+.modal-open #confirm-modal {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-.animate-ping-slow {
-  animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+.modal-open #confirm-modal-content {
+  transform: scale(1);
 }

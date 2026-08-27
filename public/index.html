@@ -31,21 +31,119 @@
 
   <link rel="stylesheet" href="/css/style.css" />
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-emerald-500 selection:text-slate-950 antialiased">
+<body id="app-body" class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-emerald-500 selection:text-slate-950 antialiased overflow-x-hidden">
 
-  <!-- Main Container (Mobile-first centered column) -->
+  <!-- ==================== SIDEBAR BACKDROP & DRAWER ==================== -->
+  <div id="sidebar-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+
+  <aside id="sidebar-drawer" class="fixed top-0 left-0 bottom-0 w-72 sm:w-80 bg-slate-900/95 backdrop-blur-xl border-r border-slate-800 z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col justify-between p-5 shadow-2xl">
+    
+    <!-- Sidebar Top Header -->
+    <div class="space-y-6">
+      <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-white tracking-tight">Antigravity</h2>
+            <p class="text-[10px] uppercase font-bold tracking-wider text-emerald-400">Armbian Player</p>
+          </div>
+        </div>
+        <button id="btn-close-sidebar" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Navigation Menu Items -->
+      <nav class="space-y-1.5 font-medium text-sm">
+        <button data-nav="player" class="nav-item w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-colors text-emerald-400 bg-emerald-500/10 border border-emerald-500/20">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Now Playing</span>
+        </button>
+
+        <button data-nav="queue" class="nav-item w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent">
+          <div class="flex items-center gap-3.5">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+            </svg>
+            <span>Queue / Up Next</span>
+          </div>
+          <span id="sidebar-queue-count" class="text-xs font-bold bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">0</span>
+        </button>
+
+        <button data-nav="search" class="nav-item w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <span>YouTube Search</span>
+        </button>
+
+        <button data-nav="add" class="nav-item w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+          </svg>
+          <span>Paste Media URL</span>
+        </button>
+
+        <button data-nav="device" class="nav-item w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <span>Device & Settings</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Sidebar Bottom: System Actions -->
+    <div class="space-y-3 pt-4 border-t border-slate-800/80">
+      <div class="space-y-2">
+        <button id="btn-sidebar-restart-mpv" class="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white text-xs font-semibold border border-slate-700/60 transition-all active:scale-95">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          <span>Reset MPV Socket</span>
+        </button>
+
+        <button id="btn-sidebar-restart-service" class="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 text-xs font-semibold border border-rose-500/30 transition-all active:scale-95">
+          <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          <span>Restart Player Service</span>
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between text-[11px] text-slate-400 pt-2">
+        <span>Target: <strong class="text-slate-300">plughw:1,0</strong></span>
+        <span class="font-mono">v1.0.0</span>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ==================== MAIN CONTENT CONTAINER ==================== -->
   <div class="max-w-md w-full mx-auto flex-1 flex flex-col p-4 sm:p-6 space-y-4">
     
     <!-- Top Header -->
     <header class="flex items-center justify-between py-2 border-b border-slate-800/80">
-      <div class="flex items-center space-x-2.5">
-        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-          <svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+      <div class="flex items-center space-x-3">
+        <!-- Hamburger Menu Button -->
+        <button id="btn-open-sidebar" class="p-2 -ml-2 text-slate-300 hover:text-white rounded-xl hover:bg-slate-800/80 transition-colors" title="Open Menu">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
           </svg>
-        </div>
+        </button>
+
         <div>
-          <h1 class="text-base font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Antigravity</h1>
+          <h1 id="header-view-title" class="text-base font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">Antigravity</h1>
           <p class="text-[10px] uppercase font-semibold tracking-wider text-slate-400">Audio Remote</p>
         </div>
       </div>
@@ -57,15 +155,18 @@
       </div>
     </header>
 
-    <!-- Now Playing Hero Card -->
-    <main class="flex-1 flex flex-col justify-center py-2 space-y-5">
+    <!-- Global Feedback Alert (Toast) -->
+    <div id="global-feedback" class="p-3 rounded-xl text-xs font-medium text-center hidden transition-all"></div>
+
+    <!-- ==================== VIEW 1: PLAYER (NOW PLAYING) ==================== -->
+    <main id="view-player" class="view-panel flex-1 flex flex-col justify-center py-2 space-y-5">
       
-      <!-- Thumbnail & Artwork Container -->
+      <!-- Thumbnail Container -->
       <div class="relative mx-auto w-64 h-64 sm:w-72 sm:h-72 rounded-3xl overflow-hidden glass-panel glow-thumbnail flex items-center justify-center">
-        <!-- Live YouTube / Stream Thumbnail -->
+        <!-- Live Thumbnail -->
         <img id="player-thumbnail" src="" alt="Album Artwork" class="w-full h-full object-cover hidden transition-all duration-500" />
         
-        <!-- Fallback Vinyl Graphic -->
+        <!-- Fallback Graphic -->
         <div id="player-thumbnail-fallback" class="flex flex-col items-center justify-center text-slate-500 space-y-3">
           <div class="w-24 h-24 rounded-full border-4 border-slate-700/60 flex items-center justify-center bg-slate-900/80 shadow-inner">
             <div class="w-8 h-8 rounded-full bg-emerald-500/30 flex items-center justify-center">
@@ -75,7 +176,7 @@
           <span class="text-xs font-medium tracking-wide uppercase text-slate-400">No Media Loaded</span>
         </div>
 
-        <!-- Floating Status Tag (Top-Right) -->
+        <!-- Status Tag -->
         <div class="absolute top-3 right-3">
           <span id="playback-status" class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-800/80 backdrop-blur-md text-slate-300 border border-white/5">
             IDLE
@@ -115,179 +216,110 @@
 
       <!-- Transport Controls -->
       <div class="flex items-center justify-center space-x-6 pt-1">
-        <!-- Previous Track Button -->
-        <button
-          id="btn-prev"
-          class="p-3 text-slate-300 hover:text-white active:scale-95 transition-all rounded-full hover:bg-slate-800/60"
-          title="Previous Track"
-        >
-          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-          </svg>
+        <button id="btn-prev" class="p-3 text-slate-300 hover:text-white active:scale-95 transition-all rounded-full hover:bg-slate-800/60" title="Previous Track">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
         </button>
 
-        <!-- Play / Pause Main Button -->
-        <button
-          id="btn-play-pause"
-          class="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center shadow-lg glow-primary active:scale-90 transition-all"
-          title="Play / Pause"
-        >
-          <!-- Play Icon -->
-          <svg id="icon-play" class="w-8 h-8 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-          <!-- Pause Icon -->
-          <svg id="icon-pause" class="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-          </svg>
+        <button id="btn-play-pause" class="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center shadow-lg glow-primary active:scale-90 transition-all" title="Play / Pause">
+          <svg id="icon-play" class="w-8 h-8 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="icon-pause" class="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
         </button>
 
-        <!-- Next Track Button -->
-        <button
-          id="btn-next"
-          class="p-3 text-slate-300 hover:text-white active:scale-95 transition-all rounded-full hover:bg-slate-800/60"
-          title="Next Track"
-        >
-          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-          </svg>
+        <button id="btn-next" class="p-3 text-slate-300 hover:text-white active:scale-95 transition-all rounded-full hover:bg-slate-800/60" title="Next Track">
+          <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
         </button>
 
-        <!-- Stop Button -->
-        <button
-          id="btn-stop"
-          class="p-3 text-slate-400 hover:text-rose-400 active:scale-95 transition-all rounded-full hover:bg-slate-800/60"
-          title="Stop Playback"
-        >
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 6h12v12H6z"/>
-          </svg>
+        <button id="btn-stop" class="p-3 text-slate-400 hover:text-rose-400 active:scale-95 transition-all rounded-full hover:bg-slate-800/60" title="Stop Playback">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
         </button>
       </div>
 
       <!-- Volume Bar -->
       <div class="flex items-center space-x-3 px-3 py-2 rounded-2xl glass-card">
         <button id="btn-mute" class="text-slate-400 hover:text-white transition-colors" title="Toggle Mute">
-          <!-- Vol High Icon -->
           <svg id="icon-vol-high" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
           </svg>
-          <!-- Vol Mute Icon -->
           <svg id="icon-vol-mute" class="w-5 h-5 text-rose-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z M17 14l4-4m0 4l-4-4" />
           </svg>
         </button>
-        <input
-          type="range"
-          id="volume-slider"
-          min="0"
-          max="100"
-          value="100"
-          class="flex-1 h-1.5 cursor-pointer"
-        />
+        <input type="range" id="volume-slider" min="0" max="100" value="100" class="flex-1 h-1.5 cursor-pointer" />
         <span id="volume-percent" class="text-xs font-mono font-medium text-slate-300 w-9 text-right">100%</span>
       </div>
 
     </main>
 
-    <!-- Bottom Navigation Tabs (Queue / Add / Device) -->
-    <section class="border-t border-slate-800/80 pt-2">
-      <div class="flex border-b border-slate-800 text-xs sm:text-sm font-semibold mb-3">
-        <button
-          data-tab-target="queue"
-          class="flex-1 py-2.5 text-center border-b-2 border-emerald-500 text-emerald-400 transition-all flex items-center justify-center gap-1.5"
-        >
-          <span>Queue</span>
-          <span id="queue-count" class="text-[10px] font-bold bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-full">0</span>
-        </button>
-        <button
-          data-tab-target="search"
-          class="flex-1 py-2.5 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1"
-        >
-          <span>Search</span>
-        </button>
-        <button
-          data-tab-target="add"
-          class="flex-1 py-2.5 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1"
-        >
-          <span>Paste URL</span>
-        </button>
-        <button
-          data-tab-target="device"
-          class="flex-1 py-2.5 text-center border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all flex items-center justify-center gap-1"
-        >
-          <span>Device</span>
-        </button>
+    <!-- ==================== VIEW 2: QUEUE (UP NEXT) ==================== -->
+    <section id="view-queue" class="view-panel flex-1 flex flex-col space-y-3 hidden">
+      <div class="flex items-center justify-between pb-1 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Playlist Queue</h3>
+          <span id="queue-count" class="text-xs font-bold bg-slate-800 text-emerald-400 px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <button id="btn-clear-queue" class="text-xs text-rose-400 hover:text-rose-300 font-medium px-2 py-1 rounded hover:bg-rose-500/10 transition-colors">Clear All</button>
       </div>
 
-      <!-- Tab Content 1: Queue -->
-      <div data-tab-content="queue" class="space-y-2">
-        <div class="flex items-center justify-between pb-1">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Up Next</span>
-          <button id="btn-clear-queue" class="text-xs text-rose-400 hover:text-rose-300 font-medium">Clear All</button>
-        </div>
-
-        <div id="queue-list" class="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-          <!-- Dynamically populated via app.js -->
-        </div>
-
-        <div id="queue-empty" class="py-8 text-center text-slate-500 text-sm">
-          <p>No tracks in queue.</p>
-          <p class="text-xs text-slate-600 mt-1">Search a track or paste a link to get started.</p>
-        </div>
+      <div id="queue-list" class="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[500px]">
+        <!-- Dynamically populated via app.js -->
       </div>
 
-      <!-- Tab Content 2: Search YouTube -->
-      <div data-tab-content="search" class="space-y-3 hidden">
-        <form id="form-search" class="flex gap-2">
-          <div class="relative flex-1">
-            <input
-              type="text"
-              id="input-search-query"
-              placeholder="Search song, artist, or album..."
-              class="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-            />
-            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-          </div>
-          <button
-            type="submit"
-            id="btn-do-search"
-            class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center"
-          >
-            Search
-          </button>
-        </form>
+      <div id="queue-empty" class="py-16 text-center text-slate-500 text-sm">
+        <p class="font-medium text-slate-400">Queue is empty</p>
+        <p class="text-xs text-slate-500 mt-1">Search YouTube or paste a URL to add songs.</p>
+      </div>
+    </section>
 
-        <!-- Search Status & Loading Spinner -->
-        <div id="search-loading" class="py-8 text-center text-slate-400 hidden">
-          <div class="inline-block w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-          <p class="text-xs mt-2 text-slate-400">Searching YouTube...</p>
+    <!-- ==================== VIEW 3: SEARCH YOUTUBE ==================== -->
+    <section id="view-search" class="view-panel flex-1 flex flex-col space-y-3 hidden">
+      <form id="form-search" class="flex gap-2">
+        <div class="relative flex-1">
+          <input
+            type="text"
+            id="input-search-query"
+            placeholder="Search songs, artists, podcasts..."
+            class="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+          />
+          <svg class="w-4 h-4 text-slate-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
         </div>
+        <button
+          type="submit"
+          class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition-all active:scale-95 flex items-center justify-center"
+        >
+          Search
+        </button>
+      </form>
 
-        <div id="search-empty" class="py-8 text-center text-slate-500 text-sm">
-          <p>Search your favorite songs & artists.</p>
-          <p class="text-xs text-slate-600 mt-1">Instant playback directly on your soundcard.</p>
-        </div>
-
-        <!-- Search Results List -->
-        <div id="search-results" class="max-h-60 overflow-y-auto space-y-2 pr-1 hidden">
-          <!-- Dynamically populated -->
-        </div>
+      <div id="search-loading" class="py-16 text-center text-slate-400 hidden">
+        <div class="inline-block w-7 h-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-xs mt-3 text-slate-400">Searching YouTube...</p>
       </div>
 
-      <!-- Tab Content 3: Add Media (Paste URL) -->
-      <div data-tab-content="add" class="space-y-3 hidden">
-        <div id="add-feedback" class="hidden"></div>
+      <div id="search-empty" class="py-16 text-center text-slate-500 text-sm">
+        <p class="font-medium text-slate-400">Search YouTube Music</p>
+        <p class="text-xs text-slate-500 mt-1">Instant playback directly on your USB soundcard.</p>
+      </div>
+
+      <div id="search-results" class="flex-1 overflow-y-auto space-y-2 pr-1 max-h-[500px] hidden">
+        <!-- Dynamically populated -->
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 4: PASTE URL ==================== -->
+    <section id="view-add" class="view-panel flex-1 flex flex-col space-y-4 hidden">
+      <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+        <h3 class="text-sm font-bold text-white">Direct URL Ingestion</h3>
+        <p class="text-xs text-slate-400">Paste any YouTube video, YouTube Music, Playlist, or Direct Audio stream (MP3/AAC/M3U8).</p>
+        
         <form id="form-add-media" class="space-y-3">
           <div>
-            <label class="block text-xs font-semibold text-slate-400 mb-1.5">Paste Media URL</label>
             <input
               type="text"
               id="input-media-url"
-              placeholder="https://youtube.com/watch?v=... or direct audio stream"
-              class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              placeholder="https://youtube.com/watch?v=..."
+              class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
             />
           </div>
           <div class="grid grid-cols-2 gap-2">
@@ -308,26 +340,44 @@
           </div>
         </form>
       </div>
+    </section>
 
-      <!-- Tab Content 4: Device / System Info -->
-      <div data-tab-content="device" class="space-y-2 hidden text-xs text-slate-300">
-        <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
-          <div class="flex justify-between">
+    <!-- ==================== VIEW 5: DEVICE & SETTINGS ==================== -->
+    <section id="view-device" class="view-panel flex-1 flex flex-col space-y-4 hidden">
+      <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+        <h3 class="text-sm font-bold text-white">Audio & Engine Configuration</h3>
+        <div class="space-y-2 text-xs text-slate-300">
+          <div class="flex justify-between py-1 border-b border-slate-800/60">
             <span class="text-slate-400">Audio Output:</span>
             <span class="font-mono text-emerald-400">alsa/plughw:1,0 (USB DAC)</span>
           </div>
-          <div class="flex justify-between">
+          <div class="flex justify-between py-1 border-b border-slate-800/60">
             <span class="text-slate-400">IPC Socket:</span>
             <span class="font-mono text-slate-300">/tmp/mpvsocket</span>
           </div>
-          <div class="flex justify-between">
+          <div class="flex justify-between py-1 border-b border-slate-800/60">
             <span class="text-slate-400">Video Engine:</span>
             <span class="font-mono text-slate-300">Disabled (--no-video)</span>
           </div>
-          <div class="flex justify-between">
-            <span class="text-slate-400">Extractor:</span>
-            <span class="font-mono text-slate-300">yt-dlp (standalone)</span>
+          <div class="flex justify-between py-1">
+            <span class="text-slate-400">Media Extractor:</span>
+            <span class="font-mono text-slate-300">yt-dlp (ARM64)</span>
           </div>
+        </div>
+      </div>
+
+      <!-- Service Management Actions -->
+      <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+        <h3 class="text-sm font-bold text-white">Service Management</h3>
+        <p class="text-xs text-slate-400">Restart socket connection or reload background services if MPV encounters network issues.</p>
+        
+        <div class="space-y-2">
+          <button id="btn-device-restart-mpv" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-2">
+            <span>🔄 Reset MPV Socket Connection</span>
+          </button>
+          <button id="btn-device-restart-service" class="w-full py-2.5 px-4 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold border border-rose-500/30 transition-all active:scale-95 flex items-center justify-center gap-2">
+            <span>⚡ Restart Player Background Service</span>
+          </button>
         </div>
       </div>
     </section>

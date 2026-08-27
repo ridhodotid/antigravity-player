@@ -1,6 +1,6 @@
 /**
  * Antigravity-Player Frontend Client
- * WebSocket State Synchronization & Interactive UI Controller
+ * WebSocket State Synchronization, Sidebar Navigation & Interactive UI Controller
  */
 
 class AntigravityPlayerApp {
@@ -10,6 +10,8 @@ class AntigravityPlayerApp {
     this.isUserSeeking = false;
     this.isUserChangingVolume = false;
     this.lastMutedVolume = 80;
+
+    this.currentView = 'player'; // 'player' | 'queue' | 'search' | 'add' | 'device'
 
     this.state = {
       connected: false,
@@ -25,18 +27,36 @@ class AntigravityPlayerApp {
       currentTrackIndex: -1,
     };
 
-    this.activeTab = 'queue'; // 'queue' | 'add' | 'device'
-
     this._cacheDOMElements();
     this._bindDOMEvents();
     this._connectWebSocket();
   }
 
   _cacheDOMElements() {
+    // Body & Sidebar Drawer
+    this.appBody = document.getElementById('app-body');
+    this.sidebarBackdrop = document.getElementById('sidebar-backdrop');
+    this.sidebarDrawer = document.getElementById('sidebar-drawer');
+    this.btnOpenSidebar = document.getElementById('btn-open-sidebar');
+    this.btnCloseSidebar = document.getElementById('btn-close-sidebar');
+    this.navItems = document.querySelectorAll('[data-nav]');
+    this.headerViewTitle = document.getElementById('header-view-title');
+    this.sidebarQueueCount = document.getElementById('sidebar-queue-count');
+
     // Connection Indicators
     this.connBadge = document.getElementById('connection-badge');
     this.connText = document.getElementById('connection-text');
     this.connDot = document.getElementById('connection-dot');
+    this.globalFeedback = document.getElementById('global-feedback');
+
+    // Views
+    this.viewPanels = {
+      player: document.getElementById('view-player'),
+      queue: document.getElementById('view-queue'),
+      search: document.getElementById('view-search'),
+      add: document.getElementById('view-add'),
+      device: document.getElementById('view-device'),
+    };
 
     // Hero / Now Playing
     this.thumbnailImg = document.getElementById('player-thumbnail');
@@ -65,32 +85,47 @@ class AntigravityPlayerApp {
     this.iconVolHigh = document.getElementById('icon-vol-high');
     this.iconVolMute = document.getElementById('icon-vol-mute');
 
-    // Tabs
-    this.tabButtons = document.querySelectorAll('[data-tab-target]');
-    this.tabContents = document.querySelectorAll('[data-tab-content]');
-
-    // Queue Tab
+    // Queue View
     this.queueList = document.getElementById('queue-list');
     this.queueEmptyState = document.getElementById('queue-empty');
     this.queueCountBadge = document.getElementById('queue-count');
     this.btnClearQueue = document.getElementById('btn-clear-queue');
 
-    // Search Tab
+    // Search View
     this.formSearch = document.getElementById('form-search');
     this.inputSearchQuery = document.getElementById('input-search-query');
     this.searchLoading = document.getElementById('search-loading');
     this.searchEmpty = document.getElementById('search-empty');
     this.searchResults = document.getElementById('search-results');
 
-    // Add Media Tab
+    // Add Media View
     this.formAddMedia = document.getElementById('form-add-media');
     this.inputMediaUrl = document.getElementById('input-media-url');
     this.btnAddQueue = document.getElementById('btn-add-queue');
     this.btnPlayNow = document.getElementById('btn-play-now');
-    this.feedbackAlert = document.getElementById('add-feedback');
+
+    // Service Restart Buttons
+    this.btnSidebarRestartMpv = document.getElementById('btn-sidebar-restart-mpv');
+    this.btnSidebarRestartService = document.getElementById('btn-sidebar-restart-service');
+    this.btnDeviceRestartMpv = document.getElementById('btn-device-restart-mpv');
+    this.btnDeviceRestartService = document.getElementById('btn-device-restart-service');
   }
 
   _bindDOMEvents() {
+    // Sidebar open/close
+    this.btnOpenSidebar.addEventListener('click', () => this.openSidebar());
+    this.btnCloseSidebar.addEventListener('click', () => this.closeSidebar());
+    this.sidebarBackdrop.addEventListener('click', () => this.closeSidebar());
+
+    // Sidebar navigation
+    this.navItems.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const targetView = btn.getAttribute('data-nav');
+        this.switchView(targetView);
+        this.closeSidebar();
+      });
+    });
+
     // Playback buttons
     this.btnPlayPause.addEventListener('click', () => this.sendAction({ action: 'toggle' }));
     this.btnPrev.addEventListener('click', () => this.sendAction({ action: 'prev' }));
@@ -138,14 +173,6 @@ class AntigravityPlayerApp {
       }
     });
 
-    // Tab Navigation
-    this.tabButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const target = btn.getAttribute('data-tab-target');
-        this.switchTab(target);
-      });
-    });
-
     // Queue Management
     this.btnClearQueue.addEventListener('click', () => {
       if (confirm('Clear all songs from the playlist queue?')) {
@@ -153,7 +180,7 @@ class AntigravityPlayerApp {
       }
     });
 
-    // Search Management
+    // Search Form
     if (this.formSearch) {
       this.formSearch.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -169,6 +196,128 @@ class AntigravityPlayerApp {
 
     this.btnAddQueue.addEventListener('click', () => this._submitMedia(false));
     this.btnPlayNow.addEventListener('click', () => this._submitMedia(true));
+
+    // Service Restart triggers
+    const triggerRestartMpv = () => this.restartMpv();
+    const triggerRestartService = () => this.restartService();
+
+    if (this.btnSidebarRestartMpv) this.btnSidebarRestartMpv.addEventListener('click', triggerRestartMpv);
+    if (this.btnDeviceRestartMpv) this.btnDeviceRestartMpv.addEventListener('click', triggerRestartMpv);
+
+    if (this.btnSidebarRestartService) this.btnSidebarRestartService.addEventListener('click', triggerRestartService);
+    if (this.btnDeviceRestartService) this.btnDeviceRestartService.addEventListener('click', triggerRestartService);
+  }
+
+  openSidebar() {
+    this.appBody.classList.add('sidebar-open');
+  }
+
+  closeSidebar() {
+    this.appBody.classList.remove('sidebar-open');
+  }
+
+  switchView(viewName) {
+    if (!this.viewPanels[viewName]) return;
+    this.currentView = viewName;
+
+    // Toggle panels
+    Object.entries(this.viewPanels).forEach(([name, el]) => {
+      if (el) {
+        el.classList.toggle('hidden', name !== viewName);
+      }
+    });
+
+    // Update nav item active styles
+    this.navItems.forEach((btn) => {
+      const isCurrent = btn.getAttribute('data-nav') === viewName;
+      if (isCurrent) {
+        btn.className = 'nav-item w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-colors text-emerald-400 bg-emerald-500/10 border border-emerald-500/20';
+      } else {
+        btn.className = 'nav-item w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent';
+      }
+    });
+
+    // Update Header Title
+    const titles = {
+      player: 'Antigravity',
+      queue: 'Queue / Up Next',
+      search: 'YouTube Search',
+      add: 'Paste URL',
+      device: 'Device & Settings',
+    };
+    this.headerViewTitle.textContent = titles[viewName] || 'Antigravity';
+  }
+
+  async restartMpv() {
+    this.showToast('Resetting MPV Socket connection...', 'info');
+    try {
+      const res = await fetch('/api/system/restart-mpv', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('MPV Socket connection reset successfully!', 'success');
+      } else {
+        this.showToast('Failed to reset MPV socket: ' + data.error, 'error');
+      }
+    } catch (err) {
+      this.showToast('Error resetting MPV: ' + err.message, 'error');
+    }
+  }
+
+  async restartService() {
+    if (!confirm('Are you sure you want to restart the Antigravity Player service? Audio playback will pause briefly.')) {
+      return;
+    }
+
+    this.showToast('Restarting Antigravity Player service...', 'warning');
+    try {
+      await fetch('/api/system/restart-service', { method: 'POST' });
+      setTimeout(() => {
+        location.reload();
+      }, 2500);
+    } catch (err) {
+      this.showToast('Restart command sent. Reconnecting in 3s...', 'info');
+      setTimeout(() => {
+        location.reload();
+      }, 3000);
+    }
+  }
+
+  showToast(msg, type = 'success') {
+    const colors = {
+      success: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
+      error: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
+      warning: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+      info: 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30',
+    };
+
+    this.globalFeedback.textContent = msg;
+    this.globalFeedback.className = `p-3 rounded-xl text-xs font-semibold text-center transition-all ${colors[type] || colors.info}`;
+    this.globalFeedback.classList.remove('hidden');
+
+    setTimeout(() => {
+      this.globalFeedback.classList.add('hidden');
+    }, 4000);
+  }
+
+  _submitMedia(playNow) {
+    const url = this.inputMediaUrl.value.trim();
+    if (!url) {
+      this.showToast('Please enter a valid YouTube or stream URL', 'error');
+      return;
+    }
+
+    this.sendAction({
+      action: 'add_url',
+      url,
+      playNow,
+    });
+
+    this.showToast(playNow ? 'Playing track now...' : 'Added track to queue!', 'success');
+    this.inputMediaUrl.value = '';
+
+    setTimeout(() => {
+      this.switchView('queue');
+    }, 800);
   }
 
   async performSearch() {
@@ -189,7 +338,7 @@ class AntigravityPlayerApp {
         this.renderSearchResults(data.data);
       } else {
         this.searchResults.innerHTML = `
-          <div class="py-8 text-center text-slate-500 text-sm">
+          <div class="py-16 text-center text-slate-500 text-sm">
             <p>No results found for "${this._escapeHtml(query)}"</p>
           </div>
         `;
@@ -198,7 +347,7 @@ class AntigravityPlayerApp {
     } catch (err) {
       this.searchLoading.classList.add('hidden');
       this.searchResults.innerHTML = `
-        <div class="py-8 text-center text-rose-400 text-sm">
+        <div class="py-16 text-center text-rose-400 text-sm">
           <p>Search failed. Please try again.</p>
         </div>
       `;
@@ -253,62 +402,14 @@ class AntigravityPlayerApp {
   playSearchResult(escapedUrl) {
     const url = decodeURIComponent(escapedUrl);
     this.sendAction({ action: 'add_url', url, playNow: true });
-    this.switchTab('queue');
+    this.showToast('Playing track immediately...', 'success');
+    this.switchView('player');
   }
 
   queueSearchResult(escapedUrl) {
     const url = decodeURIComponent(escapedUrl);
     this.sendAction({ action: 'add_url', url, playNow: false });
-    this.switchTab('queue');
-  }
-
-  _submitMedia(playNow) {
-    const url = this.inputMediaUrl.value.trim();
-    if (!url) {
-      this._showFeedback('Please enter a valid YouTube or stream URL', 'error');
-      return;
-    }
-
-    this.sendAction({
-      action: 'add_url',
-      url,
-      playNow,
-    });
-
-    this._showFeedback(playNow ? 'Playing track now...' : 'Added track to queue!', 'success');
-    this.inputMediaUrl.value = '';
-
-    // Switch back to queue tab after short delay
-    setTimeout(() => {
-      this.switchTab('queue');
-    }, 800);
-  }
-
-  _showFeedback(msg, type = 'success') {
-    this.feedbackAlert.textContent = msg;
-    this.feedbackAlert.className = `p-3 rounded-xl text-sm text-center font-medium transition-all ${
-      type === 'success' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-    }`;
-    this.feedbackAlert.classList.remove('hidden');
-
-    setTimeout(() => {
-      this.feedbackAlert.classList.add('hidden');
-    }, 3500);
-  }
-
-  switchTab(targetTab) {
-    this.activeTab = targetTab;
-    this.tabButtons.forEach((btn) => {
-      const isCurrent = btn.getAttribute('data-tab-target') === targetTab;
-      btn.classList.toggle('text-emerald-400', isCurrent);
-      btn.classList.toggle('border-emerald-500', isCurrent);
-      btn.classList.toggle('text-slate-400', !isCurrent);
-      btn.classList.toggle('border-transparent', !isCurrent);
-    });
-
-    this.tabContents.forEach((content) => {
-      content.classList.toggle('hidden', content.getAttribute('data-tab-content') !== targetTab);
-    });
+    this.showToast('Track added to queue!', 'success');
   }
 
   _connectWebSocket() {
@@ -318,7 +419,6 @@ class AntigravityPlayerApp {
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
-      console.log('[WS] Connected to server');
       this._updateConnectionUI(true);
     };
 
@@ -332,7 +432,6 @@ class AntigravityPlayerApp {
     };
 
     this.ws.onclose = () => {
-      console.warn('[WS] Disconnected from server. Reconnecting...');
       this._updateConnectionUI(false);
       setTimeout(() => this._connectWebSocket(), this.reconnectInterval);
     };
@@ -345,8 +444,6 @@ class AntigravityPlayerApp {
   sendAction(payload) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(payload));
-    } else {
-      console.warn('[WS] Cannot send action, socket is not open');
     }
   }
 
@@ -384,11 +481,11 @@ class AntigravityPlayerApp {
   _updateConnectionUI(connected) {
     if (connected && this.state.connected !== false) {
       this.connBadge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-      this.connText.textContent = 'MPV Online';
+      this.connText.textContent = 'Online';
       this.connDot.className = 'w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse';
     } else {
       this.connBadge.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20';
-      this.connText.textContent = 'MPV Offline';
+      this.connText.textContent = 'Offline';
       this.connDot.className = 'w-2 h-2 rounded-full bg-rose-400 mr-1.5';
     }
   }
@@ -403,13 +500,13 @@ class AntigravityPlayerApp {
     // Status Badge
     if (this.state.idle) {
       this.playbackStatus.textContent = 'IDLE';
-      this.playbackStatus.className = 'text-xs font-medium px-2 py-0.5 rounded-full bg-slate-700 text-slate-300';
+      this.playbackStatus.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300';
     } else if (this.state.paused) {
       this.playbackStatus.textContent = 'PAUSED';
-      this.playbackStatus.className = 'text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      this.playbackStatus.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
     } else {
       this.playbackStatus.textContent = 'PLAYING';
-      this.playbackStatus.className = 'text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      this.playbackStatus.className = 'text-xs font-medium px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
     }
 
     // Play / Pause Icon Button
@@ -459,6 +556,7 @@ class AntigravityPlayerApp {
   _renderQueue() {
     const list = this.state.playlist || [];
     this.queueCountBadge.textContent = `${list.length}`;
+    if (this.sidebarQueueCount) this.sidebarQueueCount.textContent = `${list.length}`;
 
     if (list.length === 0) {
       this.queueList.innerHTML = '';

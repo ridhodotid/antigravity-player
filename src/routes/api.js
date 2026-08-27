@@ -192,6 +192,30 @@ function createApiRouter(mpvController, stateManager) {
     }
   });
 
+  // System: Restart MPV Connection
+  router.post('/system/restart-mpv', async (req, res) => {
+    try {
+      mpvController.client.destroy();
+      setTimeout(() => {
+        mpvController.start();
+        setTimeout(() => stateManager.refreshFullState(), 500);
+      }, 500);
+
+      res.json({ success: true, message: 'MPV connection reset triggered' });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // System: Restart Entire Service
+  router.post('/system/restart-service', (req, res) => {
+    res.json({ success: true, message: 'Restarting Antigravity Player service...' });
+    setTimeout(() => {
+      console.log('[System] Service restart requested via Web UI. Exiting for systemd restart...');
+      process.exit(0);
+    }, 600);
+  });
+
   return router;
 }
 
