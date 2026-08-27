@@ -284,51 +284,31 @@ class AntigravityPlayerApp {
   }
 
   _ensureSilentAudioStream() {
+    if (!this.silentAudio) return;
+
     if (this.streamInitialized) {
-      // Resume AudioContext if suspended (browser policy)
+      // Audio context may be suspended after page background — resume it
       if (this.audioCtx && this.audioCtx.state === 'suspended') {
         this.audioCtx.resume().catch(() => {});
       }
-      if (this.silentAudio && this.silentAudio.paused) {
+      if (this.silentAudio.paused) {
         this.silentAudio.play().catch(() => {});
       }
       return;
     }
 
-    try {
-      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtxClass) return;
+    // Use a looping silent audio file — simplest & most reliable way to
+    // activate MediaSession notification on Android Chrome / Samsung Internet
+    this.silentAudio.src = '/silence.mp3';
+    this.silentAudio.loop = true;
+    this.silentAudio.volume = 0.001;
 
-      // Create AudioContext and route a silent oscillator to a MediaStream
-      this.audioCtx = new AudioCtxClass({ sampleRate: 22050 });
-      const dest = this.audioCtx.createMediaStreamDestination();
-      const osc = this.audioCtx.createOscillator();
-      const gain = this.audioCtx.createGain();
-      gain.gain.value = 0.00001; // Virtually silent (below hearing threshold)
-      osc.type = 'sine';
-      osc.frequency.value = 1; // 1Hz — inaudible
-      osc.connect(gain);
-      gain.connect(dest);
-      osc.start();
-
-      if (!this.silentAudio) return;
-
-      // Assign live stream as audio source
-      this.silentAudio.srcObject = dest.stream;
-      this.silentAudio.volume = 0.001;
-
-      const playPromise = this.silentAudio.play();
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          this.streamInitialized = true;
-          console.log('[MediaSession] ✅ Live Audio Bridge established — lockscreen controls active');
-        }).catch((e) => {
-          console.warn('[MediaSession] Audio bridge needs user gesture:', e.message);
-        });
-      }
-    } catch (err) {
-      console.warn('[MediaSession] Bridge init failed:', err.message);
-    }
+    this.silentAudio.play().then(() => {
+      this.streamInitialized = true;
+      console.log('[MediaSession] ✅ Silent audio loop started — lockscreen controls active');
+    }).catch((e) => {
+      console.warn('[MediaSession] play() blocked, needs user gesture:', e.message);
+    });
   }
 
   _initMediaSession() {
