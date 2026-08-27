@@ -113,6 +113,10 @@ class AntigravityPlayerApp {
     // PWA Install Button
     this.btnPwaInstall = document.getElementById('btn-pwa-install');
     this.deferredPrompt = null;
+
+    // Silent Audio Bridge for MediaSession Lockscreen Controls
+    this.silentAudio = document.getElementById('silent-audio-bridge');
+    this.audioUnlocked = false;
   }
 
   _bindDOMEvents() {
@@ -236,7 +240,114 @@ class AntigravityPlayerApp {
       });
     }
 
+    // Unlock audio context / silent audio bridge on first user interaction
+    const unlockAudio = () => {
+      if (!this.audioUnlocked && this.silentAudio) {
+        this.silentAudio.play().then(() => {
+          this.audioUnlocked = true;
+          if (this.state.paused || this.state.idle) {
+            this.silentAudio.pause();
+          }
+        }).catch(() => {});
+      }
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+    };
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+
     this._registerServiceWorker();
+    this._initMediaSession();
+  }
+
+  _initMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+
+    try {
+      navigator.mediaSession.setActionHandler('play', () => {
+        if (this.silentAudio) this.silentAudio.play().catch(() => {});
+        this.sendAction({ action: 'play' });
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        if (this.silentAudio) this.silentAudio.pause();
+        this.sendAction({ action: 'pause' });
+      });
+
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        this.sendAction({ action: 'prev' });
+      });
+
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        this.sendAction({ action: 'next' });
+      });
+
+      navigator.mediaSession.setActionHandler('stop', () => {
+        if (this.silentAudio) this.silentAudio.pause();
+        this.sendAction({ action: 'stop' });
+      });
+
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined && details.seekTime !== null) {
+          this.sendAction({ action: 'seek', value: Math.round(details.seekTime) });
+        }
+      });
+    } catch (err) {
+      console.warn('[MediaSession] Action handler notice:', err.message);
+    }
+  }
+
+  _updateMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+
+    try {
+      // 1. Update Track Metadata
+      const title = this.state.title || 'Antigravity Player';
+      const artist = this.state.artist || 'Ready to Play';
+      const artworkSrc = this.state.thumbnail || '/icons/icon.svg';
+
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist,
+        album: 'Antigravity Player',
+        artwork: [
+          { src: artworkSrc, sizes: '512x512', type: 'image/jpeg' },
+          { src: '/icons/icon.svg', sizes: '192x192', type: 'image/svg+xml' },
+        ],
+      });
+
+      // 2. Update Playback State & Silent Audio
+      if (!this.state.idle && !this.state.paused) {
+        navigator.mediaSession.playbackState = 'playing';
+        if (this.silentAudio) {
+          this.silentAudio.play().catch(() => {});
+        }
+      } else if (this.state.paused && !this.state.idle) {
+        navigator.mediaSession.playbackState = 'paused';
+        if (this.silentAudio) {
+          this.silentAudio.pause();
+        }
+      } else {
+        navigator.mediaSession.playbackState = 'none';
+        if (this.silentAudio) {
+          this.silentAudio.pause();
+        }
+      }
+
+      // 3. Update Timeline Position State
+      const duration = this.state.duration || 0;
+      const position = Math.min(this.state.timePos || 0, duration);
+
+      if (duration > 0 && typeof navigator.mediaSession.setPositionState === 'function') {
+        navigator.mediaSession.setPositionState({
+          duration: duration,
+          playbackRate: 1.0,
+          position: position,
+        });
+      }
+    } catch (err) {
+      // Silent error catch for browser quirks
+    }
   }
 
   _registerServiceWorker() {
@@ -583,6 +694,9 @@ class AntigravityPlayerApp {
     // Timeline & Queue
     this._renderTimeline();
     this._renderQueue();
+
+    // MediaSession Lockscreen Update
+    this._updateMediaSession();
   }
 
   _renderTimeline() {
@@ -596,6 +710,17 @@ class AntigravityPlayerApp {
 
     this.timeCurrent.textContent = this.formatTime(current);
     this.timeTotal.textContent = duration > 0 ? this.formatTime(duration) : '--:--';
+
+    // Update MediaSession Position State
+    if ('mediaSession' in navigator && duration > 0 && typeof navigator.mediaSession.setPositionState === 'function') {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: duration,
+          playbackRate: 1.0,
+          position: Math.min(current, duration),
+        });
+      } catch {}
+    }
   }
 
   _renderQueue() {
