@@ -25,5 +25,10 @@ exec mpv \
   --input-default-bindings=no \
   --audio-device="${AUDIO_DEV}" \
   --input-ipc-server="${SOCKET_PATH}" \
-  --ytdl-format="bestaudio/best" \
+  --ytdl-format="bestaudio[ext=webm][abr<=128]/bestaudio[ext=m4a][abr<=128]/bestaudio/best" \
+  --ytdl-raw-options="no-playlist=,extractor-retries=1,socket-timeout=8" \
+  --cache=yes \
+  --demuxer-max-bytes=5MiB \
+  --demuxer-readahead-secs=3 \
+  --stream-buffer-size=256KiB \
   --msg-level=all=warn
