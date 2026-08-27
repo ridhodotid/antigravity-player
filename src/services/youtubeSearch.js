@@ -1,10 +1,12 @@
 const https = require('https');
 const { execFile } = require('child_process');
+const fs = require('fs');
 const config = require('../../config');
 
 /**
  * YouTubeSearchService
- * Fast, lightweight YouTube search without requiring Google API keys.
+ * Uses YouTube Innertube API v1 for instant, reliable, cookie-free search results,
+ * with resilient fallbacks.
  */
 class YouTubeSearchService {
   /**
@@ -13,25 +15,35 @@ class YouTubeSearchService {
    * @param {number} limit 
    * @returns {Promise<Array<{id: string, url: string, title: string, artist: string, duration: string, thumbnail: string}>>}
    */
-  static async search(query, limit = 10) {
+  static async search(query, limit = 12) {
     if (!query || typeof query !== 'string' || !query.trim()) {
       return [];
     }
 
     const cleanQuery = query.trim();
 
+    // 1. Primary: YouTube Innertube API (Zero Scraping, Pure JSON, 100% reliable)
     try {
-      // 1. Try fast HTTPS scraping of YouTube search page
-      const results = await this._searchViaHttp(cleanQuery, limit);
+      const results = await this._searchViaInnertube(cleanQuery, limit);
       if (results && results.length > 0) {
         return results;
       }
     } catch (err) {
-      console.warn('[YouTubeSearch] HTTP search failed, falling back to yt-dlp:', err.message);
+      console.warn('[YouTubeSearch] Innertube API attempt notice:', err.message);
     }
 
+    // 2. Secondary: Fallback to HTML Scraping
     try {
-      // 2. Fallback to yt-dlp binary
+      const results = await this._searchViaHtmlScrape(cleanQuery, limit);
+      if (results && results.length > 0) {
+        return results;
+      }
+    } catch (err) {
+      console.warn('[YouTubeSearch] HTML scraping attempt notice:', err.message);
+    }
+
+    // 3. Tertiary: Fallback to yt-dlp CLI
+    try {
       return await this._searchViaYtDlp(cleanQuery, limit);
     } catch (err) {
       console.error('[YouTubeSearch] All search methods failed:', err.message);
@@ -40,15 +52,99 @@ class YouTubeSearchService {
   }
 
   /**
-   * Scrapes ytInitialData from YouTube search results
+   * Primary: YouTube Innertube Web Client Search API (Returns clean JSON)
    */
-  static _searchViaHttp(query, limit) {
+  static _searchViaInnertube(query, limit) {
+    return new Promise((resolve, reject) => {
+      const payload = JSON.stringify({
+        context: {
+          client: {
+            clientName: 'WEB',
+            clientVersion: '2.20231201.00.00',
+            hl: 'en',
+            gl: 'US',
+          },
+        },
+        query: query,
+      });
+
+      const options = {
+        hostname: 'www.youtube.com',
+        port: 443,
+        path: '/youtubei/v1/search',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      };
+
+      const req = https.request(options, (res) => {
+        if (res.statusCode !== 200) {
+          return reject(new Error(`Innertube returned status ${res.statusCode}`));
+        }
+
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            const sectionContents =
+              json?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
+
+            const results = [];
+            for (const item of sectionContents) {
+              if (results.length >= limit) break;
+
+              const video = item.videoRenderer;
+              if (!video || !video.videoId) continue;
+
+              const videoId = video.videoId;
+              const title = video.title?.runs?.[0]?.text || video.title?.accessibility?.accessibilityData?.label || 'Untitled';
+              const artist = video.ownerText?.runs?.[0]?.text || video.shortBylineText?.runs?.[0]?.text || 'YouTube Channel';
+              const duration = video.lengthText?.simpleText || video.lengthText?.runs?.[0]?.text || '--:--';
+              const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+              results.push({
+                id: videoId,
+                url: `https://www.youtube.com/watch?v=${videoId}`,
+                title,
+                artist,
+                duration,
+                thumbnail,
+              });
+            }
+
+            resolve(results);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      });
+
+      req.on('error', reject);
+      req.setTimeout(8000, () => {
+        req.destroy();
+        reject(new Error('Innertube request timed out'));
+      });
+
+      req.write(payload);
+      req.end();
+    });
+  }
+
+  /**
+   * Secondary: HTML Scrape
+   */
+  static _searchViaHtmlScrape(query, limit) {
     return new Promise((resolve, reject) => {
       const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
       const options = {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept-Language': 'en-US,en;q=0.9',
+          'Cookie': 'SOCS=CAESEwgDEgk2NDU4MzExMTgaAnVzIAEaBgiA_LyaBg;',
         },
       };
 
@@ -61,7 +157,38 @@ class YouTubeSearchService {
         res.on('data', (chunk) => (data += chunk));
         res.on('end', () => {
           try {
-            const results = this._extractInitialData(data, limit);
+            const match = data.match(/var ytInitialData = ({.*?});<\/script>/s) || data.match(/ytInitialData = ({.*?});/s);
+            if (!match || !match[1]) {
+              return reject(new Error('ytInitialData not found in HTML'));
+            }
+
+            const initialData = JSON.parse(match[1]);
+            const sectionContents =
+              initialData?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
+
+            const results = [];
+            for (const item of sectionContents) {
+              if (results.length >= limit) break;
+
+              const video = item.videoRenderer;
+              if (!video || !video.videoId) continue;
+
+              const videoId = video.videoId;
+              const title = video.title?.runs?.[0]?.text || video.title?.accessibility?.accessibilityData?.label || 'Untitled';
+              const artist = video.ownerText?.runs?.[0]?.text || video.shortBylineText?.runs?.[0]?.text || 'YouTube Channel';
+              const duration = video.lengthText?.simpleText || (video.lengthText?.runs?.[0]?.text) || '--:--';
+              const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+              results.push({
+                id: videoId,
+                url: `https://www.youtube.com/watch?v=${videoId}`,
+                title,
+                artist,
+                duration,
+                thumbnail,
+              });
+            }
+
             resolve(results);
           } catch (err) {
             reject(err);
@@ -72,59 +199,24 @@ class YouTubeSearchService {
   }
 
   /**
-   * Parse HTML and extract video items from ytInitialData
-   */
-  static _extractInitialData(html, limit) {
-    const match = html.match(/var ytInitialData = ({.*?});<\/script>/s) || html.match(/ytInitialData = ({.*?});/s);
-    if (!match || !match[1]) {
-      throw new Error('ytInitialData not found in HTML response');
-    }
-
-    const initialData = JSON.parse(match[1]);
-    const results = [];
-
-    const sectionContents =
-      initialData?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents || [];
-
-    for (const item of sectionContents) {
-      if (results.length >= limit) break;
-
-      const video = item.videoRenderer;
-      if (!video || !video.videoId) continue;
-
-      const videoId = video.videoId;
-      const title = video.title?.runs?.[0]?.text || video.title?.accessibility?.accessibilityData?.label || 'Untitled';
-      const artist = video.ownerText?.runs?.[0]?.text || video.shortBylineText?.runs?.[0]?.text || 'YouTube Channel';
-      const duration = video.lengthText?.simpleText || (video.lengthText?.runs?.[0]?.text) || '--:--';
-      const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-
-      results.push({
-        id: videoId,
-        url: `https://www.youtube.com/watch?v=${videoId}`,
-        title,
-        artist,
-        duration,
-        thumbnail,
-      });
-    }
-
-    return results;
-  }
-
-  /**
-   * Fallback using yt-dlp command line
+   * Tertiary: yt-dlp CLI binary
    */
   static _searchViaYtDlp(query, limit) {
     return new Promise((resolve, reject) => {
+      let binPath = 'yt-dlp';
+      if (fs.existsSync('/usr/local/bin/yt-dlp')) {
+        binPath = '/usr/local/bin/yt-dlp';
+      } else if (fs.existsSync('/usr/bin/yt-dlp')) {
+        binPath = '/usr/bin/yt-dlp';
+      }
+
       const args = [
         '--dump-json',
         '--flat-playlist',
-        '--default-search',
-        `ytsearch${limit}`,
-        query,
+        `ytsearch${limit}:${query}`,
       ];
 
-      execFile('yt-dlp', args, { timeout: 10000 }, (error, stdout) => {
+      execFile(binPath, args, { timeout: 12000 }, (error, stdout) => {
         if (error) {
           return reject(error);
         }
@@ -145,9 +237,7 @@ class YouTubeSearchService {
                 thumbnail: data.thumbnail || `https://img.youtube.com/vi/${data.id}/hqdefault.jpg`,
               });
             }
-          } catch {
-            // Ignore parse errors on individual lines
-          }
+          } catch {}
         }
 
         resolve(results);
