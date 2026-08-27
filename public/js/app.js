@@ -285,8 +285,12 @@ class AntigravityPlayerApp {
 
   _ensureSilentAudioStream() {
     if (this.streamInitialized) {
+      // Resume AudioContext if suspended (browser policy)
       if (this.audioCtx && this.audioCtx.state === 'suspended') {
         this.audioCtx.resume().catch(() => {});
+      }
+      if (this.silentAudio && this.silentAudio.paused) {
+        this.silentAudio.play().catch(() => {});
       }
       return;
     }
@@ -295,27 +299,35 @@ class AntigravityPlayerApp {
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtxClass) return;
 
-      this.audioCtx = new AudioCtxClass();
+      // Create AudioContext and route a silent oscillator to a MediaStream
+      this.audioCtx = new AudioCtxClass({ sampleRate: 22050 });
       const dest = this.audioCtx.createMediaStreamDestination();
       const osc = this.audioCtx.createOscillator();
       const gain = this.audioCtx.createGain();
-
-      gain.gain.value = 0.0001; // Silent / Inaudible
+      gain.gain.value = 0.00001; // Virtually silent (below hearing threshold)
+      osc.type = 'sine';
+      osc.frequency.value = 1; // 1Hz — inaudible
       osc.connect(gain);
       gain.connect(dest);
       osc.start();
 
-      if (this.silentAudio) {
-        this.silentAudio.srcObject = dest.stream;
-        this.silentAudio.play().then(() => {
+      if (!this.silentAudio) return;
+
+      // Assign live stream as audio source
+      this.silentAudio.srcObject = dest.stream;
+      this.silentAudio.volume = 0.001;
+
+      const playPromise = this.silentAudio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
           this.streamInitialized = true;
-          console.log('[MediaSession] Live Audio Stream Bridge established');
+          console.log('[MediaSession] ✅ Live Audio Bridge established — lockscreen controls active');
         }).catch((e) => {
-          console.warn('[MediaSession] Audio stream play notice:', e.message);
+          console.warn('[MediaSession] Audio bridge needs user gesture:', e.message);
         });
       }
     } catch (err) {
-      console.warn('[MediaSession] Audio bridge init warning:', err.message);
+      console.warn('[MediaSession] Bridge init failed:', err.message);
     }
   }
 
@@ -507,6 +519,7 @@ class AntigravityPlayerApp {
           <div class="flex items-center gap-1.5 ml-2 flex-shrink-0">
             <button
               onclick="window.playerApp.queueHistoryTrack('${escapedUrl}')"
+              style="touch-action:manipulation;pointer-events:auto;cursor:pointer"
               class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95 text-xs font-semibold"
               title="Add to Queue"
             >
@@ -514,6 +527,7 @@ class AntigravityPlayerApp {
             </button>
             <button
               onclick="window.playerApp.playHistoryTrack('${escapedUrl}')"
+              style="touch-action:manipulation;pointer-events:auto;cursor:pointer"
               class="p-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold active:scale-95 text-xs shadow-md shadow-emerald-500/20"
               title="Play Now"
             >
