@@ -8,6 +8,8 @@ const MpvController = require('./mpv/mpvController');
 const StateManager = require('./services/stateManager');
 const createApiRouter = require('./routes/api');
 
+const path = require('path');
+
 // 1. Initialize Express App
 const app = express();
 app.use(cors());
@@ -24,6 +26,11 @@ const stateManager = new StateManager(mpv, {
 
 // 3. Mount REST API Router
 app.use('/api', createApiRouter(mpv, stateManager));
+
+// 4. SPA Fallback
+app.get('*', (req, res) => {
+  res.sendFile(path.join(config.publicDir, 'index.html'));
+});
 
 // 4. Create HTTP Server & WebSocket Server
 const server = http.createServer(app);
