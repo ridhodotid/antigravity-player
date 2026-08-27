@@ -1,8 +1,28 @@
 const express = require('express');
 const MetadataHelper = require('../services/metadataHelper');
+const YouTubeSearchService = require('../services/youtubeSearch');
 
 function createApiRouter(mpvController, stateManager) {
   const router = express.Router();
+
+  // Search YouTube
+  router.get('/search', async (req, res) => {
+    const query = req.query.q;
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      return res.status(400).json({ success: false, error: 'Query parameter "q" is required' });
+    }
+
+    try {
+      const results = await YouTubeSearchService.search(query.trim(), 12);
+      res.json({
+        success: true,
+        query: query.trim(),
+        data: results,
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   // Get current full player state
   router.get('/state', (req, res) => {

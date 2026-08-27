@@ -75,6 +75,13 @@ class AntigravityPlayerApp {
     this.queueCountBadge = document.getElementById('queue-count');
     this.btnClearQueue = document.getElementById('btn-clear-queue');
 
+    // Search Tab
+    this.formSearch = document.getElementById('form-search');
+    this.inputSearchQuery = document.getElementById('input-search-query');
+    this.searchLoading = document.getElementById('search-loading');
+    this.searchEmpty = document.getElementById('search-empty');
+    this.searchResults = document.getElementById('search-results');
+
     // Add Media Tab
     this.formAddMedia = document.getElementById('form-add-media');
     this.inputMediaUrl = document.getElementById('input-media-url');
@@ -146,6 +153,14 @@ class AntigravityPlayerApp {
       }
     });
 
+    // Search Management
+    if (this.formSearch) {
+      this.formSearch.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.performSearch();
+      });
+    }
+
     // Ingestion Form (Add Media)
     this.formAddMedia.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -154,6 +169,97 @@ class AntigravityPlayerApp {
 
     this.btnAddQueue.addEventListener('click', () => this._submitMedia(false));
     this.btnPlayNow.addEventListener('click', () => this._submitMedia(true));
+  }
+
+  async performSearch() {
+    const query = this.inputSearchQuery.value.trim();
+    if (!query) return;
+
+    this.searchEmpty.classList.add('hidden');
+    this.searchResults.classList.add('hidden');
+    this.searchLoading.classList.remove('hidden');
+
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const data = await res.json();
+
+      this.searchLoading.classList.add('hidden');
+
+      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        this.renderSearchResults(data.data);
+      } else {
+        this.searchResults.innerHTML = `
+          <div class="py-8 text-center text-slate-500 text-sm">
+            <p>No results found for "${this._escapeHtml(query)}"</p>
+          </div>
+        `;
+        this.searchResults.classList.remove('hidden');
+      }
+    } catch (err) {
+      this.searchLoading.classList.add('hidden');
+      this.searchResults.innerHTML = `
+        <div class="py-8 text-center text-rose-400 text-sm">
+          <p>Search failed. Please try again.</p>
+        </div>
+      `;
+      this.searchResults.classList.remove('hidden');
+    }
+  }
+
+  renderSearchResults(results) {
+    this.searchResults.innerHTML = results.map((item) => {
+      const title = this._escapeHtml(item.title);
+      const artist = this._escapeHtml(item.artist);
+      const duration = this._escapeHtml(item.duration);
+      const thumb = item.thumbnail || `https://img.youtube.com/vi/${item.id}/hqdefault.jpg`;
+      const escapedUrl = encodeURIComponent(item.url);
+
+      return `
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <img src="${thumb}" class="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+            <div class="min-w-0 flex-1">
+              <p class="text-xs sm:text-sm font-semibold text-slate-100 truncate">${title}</p>
+              <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                <span class="truncate">${artist}</span>
+                <span>•</span>
+                <span>${duration}</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 ml-2 flex-shrink-0">
+            <button
+              onclick="window.playerApp.queueSearchResult('${escapedUrl}')"
+              class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95 text-xs font-semibold"
+              title="Add to Queue"
+            >
+              + Queue
+            </button>
+            <button
+              onclick="window.playerApp.playSearchResult('${escapedUrl}')"
+              class="p-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold active:scale-95 text-xs shadow-md shadow-emerald-500/20"
+              title="Play Now"
+            >
+              ▶ Play
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.searchResults.classList.remove('hidden');
+  }
+
+  playSearchResult(escapedUrl) {
+    const url = decodeURIComponent(escapedUrl);
+    this.sendAction({ action: 'add_url', url, playNow: true });
+    this.switchTab('queue');
+  }
+
+  queueSearchResult(escapedUrl) {
+    const url = decodeURIComponent(escapedUrl);
+    this.sendAction({ action: 'add_url', url, playNow: false });
+    this.switchTab('queue');
   }
 
   _submitMedia(playNow) {
