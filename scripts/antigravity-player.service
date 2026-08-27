@@ -1,0 +1,21 @@
+[Unit]
+Description=Antigravity Player Web Service & IPC Bridge
+After=mpv-daemon.service network.target
+Requires=mpv-daemon.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/antigravity-player
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=MPV_SOCKET=/tmp/mpvsocket
+Environment=AUDIO_DEVICE=alsa/plughw:1,0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

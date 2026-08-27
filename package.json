@@ -1,0 +1,28 @@
+{
+  "name": "antigravity-player",
+  "version": "1.0.0",
+  "description": "Modern Web Audio Player for Armbian STB / SBC powered by MPV IPC and yt-dlp",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node tests/mock_mpv_test.js"
+  },
+  "keywords": [
+    "mpv",
+    "audio-player",
+    "armbian",
+    "stb",
+    "sbc",
+    "ipc",
+    "yt-dlp",
+    "web-remote"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "ws": "^8.17.1"
+  }
+}

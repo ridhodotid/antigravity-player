@@ -1,0 +1,17 @@
+[Unit]
+Description=MPV Headless Audio Engine (Antigravity-Player)
+After=sound.target network.target
+Wants=sound.target
+
+[Service]
+Type=simple
+User=root
+ExecStartPre=/bin/rm -f /tmp/mpvsocket
+ExecStart=/usr/bin/mpv --idle --no-video --audio-device=alsa/plughw:1,0 --input-ipc-server=/tmp/mpvsocket --ytdl-format=bestaudio/best --ytdl-path=/usr/local/bin/yt-dlp
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
