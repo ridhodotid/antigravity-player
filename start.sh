@@ -26,11 +26,12 @@ mpv \
   --msg-level=all=warn &
 MPV_PID=$!
 
-# Trap Ctrl+C (SIGINT) and SIGTERM to kill both processes cleanly
+# Fast cleanup trap
 cleanup() {
+  trap - SIGINT SIGTERM EXIT
   echo ""
   echo "[Antigravity] Stopping services..."
-  kill $MPV_PID 2>/dev/null
+  kill -9 $MPV_PID 2>/dev/null
   rm -f "$SOCKET_PATH"
   echo "[Antigravity] Stopped."
   exit 0

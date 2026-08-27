@@ -189,20 +189,23 @@ server.listen(config.port, '0.0.0.0', () => {
   console.log(`====================================================`);
 });
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('\n[Server] Shutting down gracefully...');
-  mpv.destroy();
-  stateManager.destroy();
-  server.close(() => {
-    process.exit(0);
-  });
-});
+// Fast and clean shutdown
+function handleShutdown() {
+  console.log('\n[Server] Shutting down immediately...');
+  try {
+    // Terminate all open WebSocket clients
+    wss.clients.forEach((client) => {
+      try {
+        client.terminate();
+      } catch {}
+    });
+    wss.close();
+    mpv.destroy();
+    stateManager.destroy();
+    server.close();
+  } catch {}
+  process.exit(0);
+}
 
-process.on('SIGTERM', () => {
-  mpv.destroy();
-  stateManager.destroy();
-  server.close(() => {
-    process.exit(0);
-  });
-});
+process.on('SIGINT', handleShutdown);
+process.on('SIGTERM', handleShutdown);
