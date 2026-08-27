@@ -1,9 +1,28 @@
 const express = require('express');
 const MetadataHelper = require('../services/metadataHelper');
 const YouTubeSearchService = require('../services/youtubeSearch');
+const historyManager = require('../services/historyManager');
 
 function createApiRouter(mpvController, stateManager) {
   const router = express.Router();
+
+  // Get Playback History
+  router.get('/history', (req, res) => {
+    const limit = parseInt(req.query.limit || '50', 10);
+    res.json({
+      success: true,
+      data: historyManager.getHistory(limit),
+    });
+  });
+
+  // Clear Playback History
+  router.post('/history/clear', (req, res) => {
+    historyManager.clearHistory();
+    res.json({
+      success: true,
+      message: 'History cleared',
+    });
+  });
 
   // Search YouTube
   router.get('/search', async (req, res) => {

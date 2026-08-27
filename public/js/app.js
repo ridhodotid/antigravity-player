@@ -55,8 +55,15 @@ class AntigravityPlayerApp {
       queue: document.getElementById('view-queue'),
       search: document.getElementById('view-search'),
       add: document.getElementById('view-add'),
+      history: document.getElementById('view-history'),
       device: document.getElementById('view-device'),
     };
+
+    // History View Elements
+    this.historyList = document.getElementById('history-list');
+    this.historyEmpty = document.getElementById('history-empty');
+    this.historyCount = document.getElementById('history-count');
+    this.btnClearHistory = document.getElementById('btn-clear-history');
 
     // Hero / Now Playing
     this.thumbnailImg = document.getElementById('player-thumbnail');
@@ -135,10 +142,22 @@ class AntigravityPlayerApp {
     });
 
     // Playback buttons
-    this.btnPlayPause.addEventListener('click', () => this.sendAction({ action: 'toggle' }));
-    this.btnPrev.addEventListener('click', () => this.sendAction({ action: 'prev' }));
-    this.btnNext.addEventListener('click', () => this.sendAction({ action: 'next' }));
-    this.btnStop.addEventListener('click', () => this.sendAction({ action: 'stop' }));
+    this.btnPlayPause.addEventListener('click', () => {
+      this._playSilentAudio();
+      this.sendAction({ action: 'toggle' });
+    });
+    this.btnPrev.addEventListener('click', () => {
+      this._playSilentAudio();
+      this.sendAction({ action: 'prev' });
+    });
+    this.btnNext.addEventListener('click', () => {
+      this._playSilentAudio();
+      this.sendAction({ action: 'next' });
+    });
+    this.btnStop.addEventListener('click', () => {
+      this._pauseSilentAudio();
+      this.sendAction({ action: 'stop' });
+    });
 
     // Seeking Slider
     this.seekSlider.addEventListener('input', (e) => {
@@ -187,6 +206,15 @@ class AntigravityPlayerApp {
         this.sendAction({ action: 'clear_queue' });
       }
     });
+
+    // History Management
+    if (this.btnClearHistory) {
+      this.btnClearHistory.addEventListener('click', () => {
+        if (confirm('Clear all playback history?')) {
+          this.clearHistory();
+        }
+      });
+    }
 
     // Search Form
     if (this.formSearch) {
@@ -399,9 +427,116 @@ class AntigravityPlayerApp {
       queue: 'Queue / Up Next',
       search: 'YouTube Search',
       add: 'Paste URL',
+      history: 'Playback History',
       device: 'Device & Settings',
     };
     this.headerViewTitle.textContent = titles[viewName] || 'Antigravity';
+
+    if (viewName === 'history') {
+      this.fetchHistory();
+    }
+  }
+
+  async fetchHistory() {
+    try {
+      const res = await fetch('/api/history?limit=50');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        this.renderHistory(data.data);
+      }
+    } catch (err) {
+      console.warn('[History] Fetch failed:', err.message);
+    }
+  }
+
+  renderHistory(list) {
+    if (!this.historyList) return;
+
+    if (this.historyCount) this.historyCount.textContent = `${list.length}`;
+
+    if (list.length === 0) {
+      this.historyList.innerHTML = '';
+      if (this.historyEmpty) this.historyEmpty.classList.remove('hidden');
+      return;
+    }
+
+    if (this.historyEmpty) this.historyEmpty.classList.add('hidden');
+
+    this.historyList.innerHTML = list.map((item, index) => {
+      const title = this._escapeHtml(item.title);
+      const artist = this._escapeHtml(item.artist);
+      const thumb = item.thumbnail || `https://img.youtube.com/vi/${item.id}/hqdefault.jpg`;
+      const escapedUrl = encodeURIComponent(item.url);
+      const timeAgo = this._formatTimeAgo(item.playedAt);
+
+      return `
+        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors">
+          <div class="flex items-center gap-3 min-w-0 flex-1">
+            <img src="${thumb}" class="w-11 h-11 rounded-lg object-cover flex-shrink-0" onerror="this.src='/icons/icon.svg'" />
+            <div class="min-w-0 flex-1">
+              <p class="text-xs sm:text-sm font-semibold text-slate-100 truncate">${title}</p>
+              <div class="flex items-center gap-2 text-[11px] text-slate-400">
+                <span class="truncate">${artist}</span>
+                <span>•</span>
+                <span class="text-slate-500">${timeAgo}</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 ml-2 flex-shrink-0">
+            <button
+              onclick="window.playerApp.queueHistoryTrack('${escapedUrl}')"
+              class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-95 text-xs font-semibold"
+              title="Add to Queue"
+            >
+              + Queue
+            </button>
+            <button
+              onclick="window.playerApp.playHistoryTrack('${escapedUrl}')"
+              class="p-2 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold active:scale-95 text-xs shadow-md shadow-emerald-500/20"
+              title="Play Now"
+            >
+              ▶ Play
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  playHistoryTrack(escapedUrl) {
+    this._playSilentAudio();
+    const url = decodeURIComponent(escapedUrl);
+    this.sendAction({ action: 'add_url', url, playNow: true });
+    this.showToast('Playing track from history...', 'success');
+    this.switchView('player');
+  }
+
+  queueHistoryTrack(escapedUrl) {
+    const url = decodeURIComponent(escapedUrl);
+    this.sendAction({ action: 'add_url', url, playNow: false });
+    this.showToast('Track added to queue!', 'success');
+  }
+
+  async clearHistory() {
+    try {
+      const res = await fetch('/api/history/clear', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('Playback history cleared', 'success');
+        this.renderHistory([]);
+      }
+    } catch (err) {
+      this.showToast('Failed to clear history: ' + err.message, 'error');
+    }
+  }
+
+  _formatTimeAgo(timestamp) {
+    if (!timestamp) return 'recently';
+    const diff = Math.floor((Date.now() - timestamp) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return `${Math.floor(diff / 86400)}d ago`;
   }
 
   async restartMpv() {
@@ -424,21 +559,27 @@ class AntigravityPlayerApp {
       return;
     }
 
-    this.showToast('Restarting Antigravity Player service...', 'warning');
+    this.showToast('Restarting Antigravity Player background service...', 'info');
     try {
-      await fetch('/api/system/restart-service', { method: 'POST' });
+      const res = await fetch('/api/system/restart-service', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        this.showToast('Player service restarting. Reconnecting...', 'success');
+        setTimeout(() => {
+          location.reload();
+        }, 2500);
+      } else {
+        this.showToast('Failed to restart service: ' + data.error, 'error');
+      }
+    } catch (err) {
+      this.showToast('Service restarting, refreshing...', 'info');
       setTimeout(() => {
         location.reload();
       }, 2500);
-    } catch (err) {
-      this.showToast('Restart command sent. Reconnecting in 3s...', 'info');
-      setTimeout(() => {
-        location.reload();
-      }, 3000);
     }
   }
 
-  showToast(msg, type = 'success') {
+  showToast(msg, type = 'info') {
     const colors = {
       success: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
       error: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
@@ -456,6 +597,9 @@ class AntigravityPlayerApp {
   }
 
   _submitMedia(playNow) {
+    if (playNow) {
+      this._playSilentAudio();
+    }
     const url = this.inputMediaUrl.value.trim();
     if (!url) {
       this.showToast('Please enter a valid YouTube or stream URL', 'error');
@@ -472,7 +616,7 @@ class AntigravityPlayerApp {
     this.inputMediaUrl.value = '';
 
     setTimeout(() => {
-      this.switchView('queue');
+      this.switchView(playNow ? 'player' : 'queue');
     }, 800);
   }
 
@@ -556,6 +700,7 @@ class AntigravityPlayerApp {
   }
 
   playSearchResult(escapedUrl) {
+    this._playSilentAudio();
     const url = decodeURIComponent(escapedUrl);
     this.sendAction({ action: 'add_url', url, playNow: true });
     this.showToast('Playing track immediately...', 'success');
@@ -782,7 +927,20 @@ class AntigravityPlayerApp {
   }
 
   playTrack(index) {
+    this._playSilentAudio();
     this.sendAction({ action: 'play_queue_index', index });
+  }
+
+  _playSilentAudio() {
+    if (this.silentAudio) {
+      this.silentAudio.play().catch(() => {});
+    }
+  }
+
+  _pauseSilentAudio() {
+    if (this.silentAudio) {
+      this.silentAudio.pause();
+    }
   }
 
   moveTrack(from, to) {

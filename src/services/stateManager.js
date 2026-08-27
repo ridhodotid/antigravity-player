@@ -1,5 +1,6 @@
 const EventEmitter = require('events');
 const MetadataHelper = require('./metadataHelper');
+const historyManager = require('./historyManager');
 
 /**
  * StateManager
@@ -11,6 +12,7 @@ class StateManager extends EventEmitter {
     this.mpv = mpvController;
     this.pollInterval = options.pollInterval || 1000;
     this.pollTimer = null;
+    this.lastRecordedTrackKey = '';
 
     this.state = {
       connected: false,
@@ -213,12 +215,32 @@ class StateManager extends EventEmitter {
       }
 
       this.state.lastUpdated = Date.now();
+      this._checkAndRecordHistory();
+
       this.emit('state_change', {
         type: 'FULL_SYNC',
         state: this.getState(),
       });
     } catch (err) {
       console.error('[StateManager] Failed to refresh state:', err.message);
+    }
+  }
+
+  _checkAndRecordHistory() {
+    if (this.state.idle) return;
+
+    const trackKey = (this.state.currentUrl || '') + '::' + (this.state.title || '');
+    if (!trackKey.trim() || trackKey === '::' || this.state.title === 'Antigravity Player') return;
+
+    if (this.lastRecordedTrackKey !== trackKey) {
+      this.lastRecordedTrackKey = trackKey;
+      historyManager.addHistory({
+        url: this.state.currentUrl,
+        title: this.state.title,
+        artist: this.state.artist,
+        thumbnail: this.state.thumbnail,
+        duration: this.state.duration,
+      });
     }
   }
 

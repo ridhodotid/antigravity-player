@@ -98,6 +98,13 @@
           <span>Paste Media URL</span>
         </button>
 
+        <button data-nav="history" class="nav-item w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span>Playback History</span>
+        </button>
+
         <button data-nav="device" class="nav-item w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-colors text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
@@ -354,7 +361,27 @@
       </div>
     </section>
 
-    <!-- ==================== VIEW 5: DEVICE & SETTINGS ==================== -->
+    <!-- ==================== VIEW 5: PLAYBACK HISTORY ==================== -->
+    <section id="view-history" class="view-panel flex-1 flex flex-col space-y-3 hidden">
+      <div class="flex items-center justify-between pb-1 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Playback History</h3>
+          <span id="history-count" class="text-xs font-bold bg-slate-800 text-emerald-400 px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <button id="btn-clear-history" class="text-xs text-rose-400 hover:text-rose-300 font-medium px-2 py-1 rounded hover:bg-rose-500/10 transition-colors">Clear History</button>
+      </div>
+
+      <div id="history-list" class="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[500px]">
+        <!-- Dynamically populated via app.js -->
+      </div>
+
+      <div id="history-empty" class="py-16 text-center text-slate-500 text-sm">
+        <p class="font-medium text-slate-400">No playback history yet</p>
+        <p class="text-xs text-slate-500 mt-1">Played songs will be saved here automatically.</p>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 6: DEVICE & SETTINGS ==================== -->
     <section id="view-device" class="view-panel flex-1 flex flex-col space-y-4 hidden">
       <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
         <h3 class="text-sm font-bold text-white">Audio & Engine Configuration</h3>
@@ -397,7 +424,7 @@
   </div>
 
   <!-- Silent Audio Bridge for Mobile MediaSession Notification Bar Controls -->
-  <audio id="silent-audio-bridge" loop preload="auto" src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
+  <audio id="silent-audio-bridge" loop playsinline preload="auto" src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
 
   <script src="/js/app.js"></script>
 </body>
