@@ -394,6 +394,11 @@ class AntigravityPlayerApp {
           position: position,
         });
       }
+    } catch (err) {
+      // Silent — browser quirks
+    }
+  }
+
   _registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -955,6 +960,7 @@ class AntigravityPlayerApp {
   }
 
   _playSilentAudio() {
+    this._ensureSilentAudioStream();
     if (this.silentAudio) {
       this.silentAudio.play().catch(() => {});
     }

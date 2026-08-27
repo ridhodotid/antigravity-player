@@ -426,8 +426,8 @@
 
   </div>
 
-  <!-- Silent Audio Bridge for Mobile MediaSession Notification Bar Controls -->
-  <audio id="silent-audio-bridge" loop playsinline preload="auto" src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="></audio>
+  <!-- Silent Audio Bridge: srcObject wired at runtime by WebAudio API for infinite MediaSession stream -->
+  <audio id="silent-audio-bridge" playsinline preload="none"></audio>
 
   <script src="/js/app.js"></script>
 </body>
