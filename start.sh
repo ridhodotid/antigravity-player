@@ -16,10 +16,12 @@ echo "=========================================================="
 # Remove old socket
 rm -f "$SOCKET_PATH"
 
-# 1. Start MPV daemon in background
+# 1. Start MPV daemon in background with terminal input disabled
 mpv \
   --idle \
   --no-video \
+  --input-terminal=no \
+  --input-default-bindings=no \
   --audio-device="${AUDIO_DEV}" \
   --input-ipc-server="${SOCKET_PATH}" \
   --ytdl-format="bestaudio/best" \

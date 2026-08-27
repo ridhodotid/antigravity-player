@@ -21,6 +21,8 @@ fi
 exec mpv \
   --idle \
   --no-video \
+  --input-terminal=no \
+  --input-default-bindings=no \
   --audio-device="${AUDIO_DEV}" \
   --input-ipc-server="${SOCKET_PATH}" \
   --ytdl-format="bestaudio/best" \
