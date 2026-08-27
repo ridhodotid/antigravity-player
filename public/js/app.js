@@ -42,6 +42,7 @@ class AntigravityPlayerApp {
     this.navItems = document.querySelectorAll('[data-nav]');
     this.headerViewTitle = document.getElementById('header-view-title');
     this.sidebarQueueCount = document.getElementById('sidebar-queue-count');
+    this.sidebarHistoryCount = document.getElementById('sidebar-history-count');
 
     // Connection Indicators
     this.connBadge = document.getElementById('connection-badge');
@@ -268,24 +269,54 @@ class AntigravityPlayerApp {
       });
     }
 
-    // Unlock audio context / silent audio bridge on first user interaction
-    const unlockAudio = () => {
-      if (!this.audioUnlocked && this.silentAudio) {
-        this.silentAudio.play().then(() => {
-          this.audioUnlocked = true;
-          if (this.state.paused || this.state.idle) {
-            this.silentAudio.pause();
-          }
-        }).catch(() => {});
-      }
-      document.removeEventListener('click', unlockAudio);
-      document.removeEventListener('touchstart', unlockAudio);
+    // Initialize Silent MediaStream Bridge on user interaction
+    const unlockAudioStream = () => {
+      this._ensureSilentAudioStream();
+      document.removeEventListener('click', unlockAudioStream);
+      document.removeEventListener('touchstart', unlockAudioStream);
     };
-    document.addEventListener('click', unlockAudio, { once: true });
-    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('click', unlockAudioStream, { once: true });
+    document.addEventListener('touchstart', unlockAudioStream, { once: true });
 
     this._registerServiceWorker();
     this._initMediaSession();
+    this.fetchHistory();
+  }
+
+  _ensureSilentAudioStream() {
+    if (this.streamInitialized) {
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+      return;
+    }
+
+    try {
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtxClass) return;
+
+      this.audioCtx = new AudioCtxClass();
+      const dest = this.audioCtx.createMediaStreamDestination();
+      const osc = this.audioCtx.createOscillator();
+      const gain = this.audioCtx.createGain();
+
+      gain.gain.value = 0.0001; // Silent / Inaudible
+      osc.connect(gain);
+      gain.connect(dest);
+      osc.start();
+
+      if (this.silentAudio) {
+        this.silentAudio.srcObject = dest.stream;
+        this.silentAudio.play().then(() => {
+          this.streamInitialized = true;
+          console.log('[MediaSession] Live Audio Stream Bridge established');
+        }).catch((e) => {
+          console.warn('[MediaSession] Audio stream play notice:', e.message);
+        });
+      }
+    } catch (err) {
+      console.warn('[MediaSession] Audio bridge init warning:', err.message);
+    }
   }
 
   _initMediaSession() {
@@ -293,12 +324,11 @@ class AntigravityPlayerApp {
 
     try {
       navigator.mediaSession.setActionHandler('play', () => {
-        if (this.silentAudio) this.silentAudio.play().catch(() => {});
+        this._ensureSilentAudioStream();
         this.sendAction({ action: 'play' });
       });
 
       navigator.mediaSession.setActionHandler('pause', () => {
-        if (this.silentAudio) this.silentAudio.pause();
         this.sendAction({ action: 'pause' });
       });
 
@@ -311,7 +341,6 @@ class AntigravityPlayerApp {
       });
 
       navigator.mediaSession.setActionHandler('stop', () => {
-        if (this.silentAudio) this.silentAudio.pause();
         this.sendAction({ action: 'stop' });
       });
 
@@ -344,22 +373,14 @@ class AntigravityPlayerApp {
         ],
       });
 
-      // 2. Update Playback State & Silent Audio
+      // 2. Update Playback State
       if (!this.state.idle && !this.state.paused) {
         navigator.mediaSession.playbackState = 'playing';
-        if (this.silentAudio) {
-          this.silentAudio.play().catch(() => {});
-        }
+        this._ensureSilentAudioStream();
       } else if (this.state.paused && !this.state.idle) {
         navigator.mediaSession.playbackState = 'paused';
-        if (this.silentAudio) {
-          this.silentAudio.pause();
-        }
       } else {
         navigator.mediaSession.playbackState = 'none';
-        if (this.silentAudio) {
-          this.silentAudio.pause();
-        }
       }
 
       // 3. Update Timeline Position State
@@ -373,11 +394,6 @@ class AntigravityPlayerApp {
           position: position,
         });
       }
-    } catch (err) {
-      // Silent error catch for browser quirks
-    }
-  }
-
   _registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -453,6 +469,7 @@ class AntigravityPlayerApp {
     if (!this.historyList) return;
 
     if (this.historyCount) this.historyCount.textContent = `${list.length}`;
+    if (this.sidebarHistoryCount) this.sidebarHistoryCount.textContent = `${list.length}`;
 
     if (list.length === 0) {
       this.historyList.innerHTML = '';
@@ -842,6 +859,12 @@ class AntigravityPlayerApp {
 
     // MediaSession Lockscreen Update
     this._updateMediaSession();
+
+    // Auto-refresh history when song changes
+    if (this.lastRenderedTitle !== this.state.title && !this.state.idle) {
+      this.lastRenderedTitle = this.state.title;
+      setTimeout(() => this.fetchHistory(), 500);
+    }
   }
 
   _renderTimeline() {

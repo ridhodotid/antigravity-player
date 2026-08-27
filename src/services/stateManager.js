@@ -143,6 +143,7 @@ class StateManager extends EventEmitter {
 
     if (changed) {
       this.state.lastUpdated = Date.now();
+      this._checkAndRecordHistory();
       this.emit('state_change', {
         type: 'PROPERTY_CHANGE',
         property: name,
