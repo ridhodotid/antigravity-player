@@ -109,6 +109,10 @@ class AntigravityPlayerApp {
     this.btnSidebarRestartService = document.getElementById('btn-sidebar-restart-service');
     this.btnDeviceRestartMpv = document.getElementById('btn-device-restart-mpv');
     this.btnDeviceRestartService = document.getElementById('btn-device-restart-service');
+
+    // PWA Install Button
+    this.btnPwaInstall = document.getElementById('btn-pwa-install');
+    this.deferredPrompt = null;
   }
 
   _bindDOMEvents() {
@@ -206,6 +210,47 @@ class AntigravityPlayerApp {
 
     if (this.btnSidebarRestartService) this.btnSidebarRestartService.addEventListener('click', triggerRestartService);
     if (this.btnDeviceRestartService) this.btnDeviceRestartService.addEventListener('click', triggerRestartService);
+
+    // PWA Install Prompt Handling
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      this.deferredPrompt = e;
+      if (this.btnPwaInstall) {
+        this.btnPwaInstall.classList.remove('hidden');
+      }
+    });
+
+    if (this.btnPwaInstall) {
+      this.btnPwaInstall.addEventListener('click', async () => {
+        if (this.deferredPrompt) {
+          this.deferredPrompt.prompt();
+          const { outcome } = await this.deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+            this.showToast('Antigravity Player installed successfully!', 'success');
+          }
+          this.deferredPrompt = null;
+          this.btnPwaInstall.classList.add('hidden');
+        } else {
+          this.showToast('To install: tap Share or Browser Menu -> "Add to Home Screen"', 'info');
+        }
+      });
+    }
+
+    this._registerServiceWorker();
+  }
+
+  _registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((reg) => {
+            console.log('[PWA] Service Worker registered with scope:', reg.scope);
+          })
+          .catch((err) => {
+            console.warn('[PWA] Service Worker registration failed:', err.message);
+          });
+      });
+    }
   }
 
   openSidebar() {
